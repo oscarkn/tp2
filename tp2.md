@@ -1,3 +1,31 @@
+**Prérequis**
+
+
+**Changer le nom de la machine**
+
+```
+sudo hostname node1.tp2.linux
+```
+On a maintenant:
+```
+oscar@node1:~$ 
+```
+Puis
+
+```
+sudo nano /etc/hostname
+```
+Rentrer "node1.tp2.linux" puis sauvegarder.
+Vérification:
+
+```
+oscar@node1:~$ oscar@node1:~$ cat /etc/hostname
+node1.tp2.linux
+```
+
+**Config réseau**
+
+
 **ping 1.1.1.1 fonctionnel**
 
 ```
@@ -40,6 +68,8 @@ Ping statistics for 192.168.79.6:
 Approximate round trip times in milli-seconds:
     Minimum = 0ms, Maximum = 0ms, Average = 0ms
 ```
+
+**Partie 1: SSH**
 
 **1) Installation du serveur**
 
@@ -135,7 +165,7 @@ Your Hardware Enablement Stack (HWE) is supported until April 2025.
 Last login: Mon Oct 25 16:34:54 2021 from 192.168.79.1
 oscar@node1:~$ 
 ```
-** Modification du comportement de service**
+**Modification du comportement de service**
 
 ```
 oscar@node1:~$ oscar@node1:~$ cat /etc/ssh/sshd_c
@@ -168,3 +198,159 @@ oscar@node1:~$
 ```
 On doit écrire "-p 42069". Avant ce n'était pas nécessaire de préciser le port car c'est implicit que ssh est dans le port 22.
 
+
+**Partie 2: FTP**
+
+**1) Installation du serveur**
+
+```
+oscar@node1:~$ sudo apt install vsftpd
+```
+
+**2) Lancement du service FTP**
+
+```
+oscar@node1:~$ systemctl start vsftpd
+==== AUTHENTICATING FOR org.freedesktop.systemd1.manage-units ===
+Authentication is required to start 'vsftpd.service'.
+Authenticating as: oscar,,, (oscar)
+Password:
+==== AUTHENTICATION COMPLETE ===
+```
+Vérification
+```
+oscar@node1:~$ systemctl status vsftpd
+● vsftpd.service - vsftpd FTP server
+     Loaded: loaded (/lib/systemd/system/vsftpd.service; enabled; vendor preset: enabled)
+     Active: active (running) since Wed 2021-10-27 11:36:09 CEST; 17min ago
+```
+
+**3) Etude du service FTP**
+
+Statut du service:
+
+```
+oscar@node1:~$ systemctl status vsftpd
+● vsftpd.service - vsftpd FTP server
+     Loaded: loaded (/lib/systemd/system/vsftpd.service; enabled; vendor preset: enabled)
+     Active: active (running) since Wed 2021-10-27 11:36:09 CEST; 17min ago
+```
+Les processus liés au service vsftpd
+
+```
+oscar@node1:~$ ps -ef | grep vsftpd
+root        3379       1  0 11:36 ?        00:00:00 /usr/sbin/vsftpd /etc/vsftpd.conf
+oscar       4114    1324  0 11:55 pts/1    00:00:00 grep --color=auto vsftpd
+```
+Le port utilisé par le service vsftpd
+
+```
+oscar@node1:~$ sudo ss -ltnp
+[sudo] password for oscar:
+State    Recv-Q   Send-Q     Local Address:Port        Peer Address:Port   Process
+LISTEN   0        32                     *:21                     *:*       users:(("vsftpd",pid=3379,fd=3))
+```
+
+Les logs du service vsftpd
+
+```
+oscar@node1:~$ journalctl -xe -u vsftpd
+-- Logs begin at Tue 2021-10-19 16:29:44 CEST, end at Wed 2021-10-27 14:43:45 CEST. --
+oct. 27 11:36:09 node1.tp2.linux systemd[1]: Starting vsftpd FTP server...
+-- Subject: A start job for unit vsftpd.service has begun execution
+-- Defined-By: systemd
+-- Support: http://www.ubuntu.com/support
+--
+-- A start job for unit vsftpd.service has begun execution.
+--
+-- The job identifier is 2841.
+```
+Connexion au serveur
+
+```
+oscar@node1:~$ cat /etc/vsftpd.conf
+```
+Le # devant "write_enable=YES" doit être enlevé.
+```
+write_enable=YES
+```
+Après avoir fait un upload PC > VM :
+```
+oscar@node1:~$ sudo cat /var/log/vsftpd.log
+Wed Oct 27 15:59:04 2021 [pid 4455] [oscar] OK MKDIR: Client "::ffff:192.168.79.1", "/home/oscar/Documents/sendtovm"
+Wed Oct 27 15:59:04 2021 [pid 4455] [oscar] OK MKDIR: Client "::ffff:192.168.79.1", "/home/oscar/Documents/sendtovm/sendtopc"
+```
+Après avoir envoyé un fichier de la VM vers le PC:
+```
+Wed Oct 27 16:21:28 2021 [pid 5030] CONNECT: Client "::ffff:192.168.79.1"
+Wed Oct 27 16:21:28 2021 [pid 5029] [oscar] OK LOGIN: Client "::ffff:192.168.79.1"
+```
+(ce qu'on voit sur FileZilla)
+```
+Status:	Retrieving directory listing of "/home/oscar/Documents"...
+Status:	Directory listing of "/home/oscar/Documents" successful
+```
+Vérification que l'upload fonctionne:
+
+```
+oscar@node1:~/Documents$ ls
+sendtopc  sendtovm
+```
+
+**Visualiser les logs**
+
+Ligne de log pour le download
+
+```
+Wed Oct 27 16:21:28 2021 [pid 5030] CONNECT: Client "::ffff:192.168.79.1"
+Wed Oct 27 16:21:28 2021 [pid 5029] [oscar] OK LOGIN: Client "::ffff:192.168.79.1"
+```
+
+Ligne de log pour le upload
+```
+oscar@node1:~$ sudo cat /var/log/vsftpd.log
+Wed Oct 27 15:59:04 2021 [pid 4455] [oscar] OK MKDIR: Client "::ffff:192.168.79.1", "/home/oscar/Documents/sendtovm"
+Wed Oct 27 15:59:04 2021 [pid 4455] [oscar] OK MKDIR: Client "::ffff:192.168.79.1", "/home/oscar/Documents/sendtovm/sendtopc"
+```
+
+**4) Modification de la configuration du serveur**
+
+**Modifier le comportement du service**
+
+```
+oscar@node1:~/Documents$ oscar@node1:~/Documents$ sudo nano /etc/vsftpd.conf
+```
+On insère
+```
+listen_port=42070
+```
+Puis
+```
+oscar@node1:~/Documents$ systemctl restart vsftpd
+```
+```
+oscar@node1:~/Documents$ sudo ss -ltnp
+LISTEN   0        32                     *:42070                  *:*       users:(("vsftpd",pid=5156,fd=3))
+```
+**Connexion sur le nouveau port choisi**
+
+(sur FileZilla, le port à utiliser est maintenant 42070)
+
+Download:
+
+```
+Wed Oct 27 17:31:07 2021 [pid 5268] [oscar] OK LOGIN: Client "::ffff:192.168.79.1"
+Wed Oct 27 17:31:58 2021 [pid 5273] CONNECT: Client "::ffff:192.168.79.1"
+```
+
+Upload:
+
+```
+Wed Oct 27 17:31:58 2021 [pid 5274] [oscar] OK MKDIR: Client "::ffff:192.168.79.1", "/home/oscar/Documents/sendtovm2"
+Wed Oct 27 17:31:58 2021 [pid 5274] [oscar] OK MKDIR: Client "::ffff:192.168.79.1", "/home/oscar/Documents/sendtovm2/sendtopc"
+```
+Vérification:
+```
+oscar@node1:~/Documents$ ls
+sendtopc2  sendtovm  sendtovm2
+```
