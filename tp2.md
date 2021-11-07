@@ -439,6 +439,7 @@ LISTEN       0             1                          0.0.0.0:31337             
 ```
 
 31337 est bien le port choisi
+
 Depuis le PC, on peut se connecter.
 
 ```
