@@ -354,3 +354,103 @@ Vérification:
 oscar@node1:~/Documents$ ls
 sendtopc2  sendtovm  sendtovm2
 ```
+
+
+**Partie 3 : Création de votre propre service**
+
+**II. Jouer avec netcat**
+
+Les deux commandes pour établir ce petit chat avec netcat:
+
+Sur la VM (qui agit comme un serveur)
+
+```
+nc -l -p 31337
+```
+Sur le PC (qui agit comme le client)
+
+```
+PS C:\Users\oscar> ncat.exe 192.168.79.6 31337
+```
+Le chat est maintenant fonctionnel, mais il faut appuyer sur Entrée après chaque message.
+
+**Utiliser netcat pour stocker les données échangées dans un fichier**
+
+Sur la VM:
+
+```
+nc -l -p 31337 > toto
+```
+Sur le PC: 
+
+```e
+PS C:\Users\oscar> ncat.exe 192.168.79.6 31337
+```
+Tout ce qui est écrit par le client (le PC) sera stocké dans le fichier "toto" sur la VM.
+
+Vérification (sur la VM):
+
+```
+oscar@node1:~$ cat toto
+hello
+hello
+```
+Le fichier "toto" contient deux fois le mot "hello" car on a tapé ce mot deux fois dans le Terminal du PC.
+
+**III. Un service basé sur netcat**
+
+**1. Créer le service**
+
+```
+oscar@node1:~$ cd /etc/systemd/system/
+oscar@node1:~$ sudo touch chat_tp2.service
+oscar@node1:~$ sudo chmod 777 chat_tp2.service
+```
+```
+nano chat_tp2.service
+```
+Rentrer le suivant:
+```
+[Unit]
+Description=Little chat service (TP2)
+
+[Service]
+ExecStart=/usr/bin/nc -l -p 31337
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**2. Test test et retest**
+
+```
+sudo systemctl start chat_tp2
+```
+```
+oscar@node1:~$ systemctl status chat_tp2
+● chat_tp2.service - Little chat service (TP2)
+     Loaded: loaded (/etc/systemd/system/chat_tp2.service; disabled; vendor preset: enabled)
+     Active: active (running) since Sun 2021-11-07 15:48:34 CET; 7min ago
+```
+
+```
+oscar@node1:~$ ss -ltnp
+LISTEN       0             1                          0.0.0.0:31337                    0.0.0.0:*
+```
+
+31337 est bien le port choisi
+Depuis le PC, on peut se connecter.
+
+```
+oscar@node1:~$ journalctl -xe -u chat_tp2
+nov. 07 15:59:13 node1.tp2.linux nc[11876]: hey what's up
+```
+
+Suivre en temps réel l'arrivée de nouveaux logs
+
+```
+oscar@node1:~$ journalctl -xe -u chat_tp2 -f
+nov. 07 16:03:25 node1.tp2.linux nc[11876]: hey
+nov. 07 16:03:26 node1.tp2.linux nc[11876]: bro
+nov. 07 16:03:30 node1.tp2.linux nc[11876]: i'm oscar
+```
